@@ -1,12 +1,15 @@
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+const tg = window.Telegram?.WebApp;
+
+if (tg) {
+    tg.ready();
+    tg.expand();
+}
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const playBtn = document.getElementById("play");
 const menu = document.getElementById("menu");
+const playBtn = document.getElementById("play");
 
 const scoreLabel = document.getElementById("score");
 const bestLabel = document.getElementById("bestValue");
@@ -14,22 +17,17 @@ const bestLabel = document.getElementById("bestValue");
 const bg = new Image();
 bg.src = "fon.png";
 
-const head1 = new Image();
-head1.src = "efiop1.png";
+const headIdle = new Image();
+headIdle.src = "efiop1.png";
 
-const head2 = new Image();
-head2.src = "efiop2.png";
+const headEat = new Image();
+headEat.src = "efiop2.png";
 
-const burgerImg = new Image();
-burgerImg.src = "burger.png";
+const burger = new Image();
+burger.src = "burger.png";
 
-let W;
-let H;
-
-let score = 0;
-
-let best = Number(localStorage.getItem("best")) || 0;
-bestLabel.textContent = best;
+let W = 0;
+let H = 0;
 
 const player = {
     x: 0,
@@ -39,67 +37,58 @@ const player = {
     timer: 0
 };
 
+let score = 0;
+let best = Number(localStorage.getItem("best") || 0);
+bestLabel.textContent = best;
+
 const burgers = [];
 
 function resize() {
-
     W = canvas.width = innerWidth;
     H = canvas.height = innerHeight;
 
     player.y = H - player.size - 20;
-
 }
 
-addEventListener("resize", resize);
+window.addEventListener("resize", resize);
 
 function spawnBurger() {
 
     burgers.push({
-
         x: Math.random() * (W - 80),
-
         y: -Math.random() * H,
-
         size: 70,
-
         speed: 1 + Math.random()
-
     });
 
 }
 
-function reset() {
+function startGame() {
+
+    menu.classList.add("hidden");
 
     burgers.length = 0;
 
     score = 0;
 
-    scoreLabel.textContent = "🍔 " + score;
+    scoreLabel.textContent = "🍔 0";
 
     for (let i = 0; i < 7; i++) {
-
         spawnBurger();
-
     }
 
 }
 
-playBtn.onclick = () => {
-
-    menu.classList.add("hidden");
-
-    reset();
-
-};
+playBtn.onclick = startGame;
 
 canvas.addEventListener("touchmove", e => {
 
     player.x = e.touches[0].clientX - player.size / 2;
 
-    if (player.x < 0) player.x = 0;
-
-    if (player.x > W - player.size)
-        player.x = W - player.size;
+    player.x = Math.max(
+        0,
+        Math.min(player.x, W - player.size)
+    );
 
 });
 
@@ -107,10 +96,10 @@ canvas.addEventListener("mousemove", e => {
 
     player.x = e.clientX - player.size / 2;
 
-    if (player.x < 0) player.x = 0;
-
-    if (player.x > W - player.size)
-        player.x = W - player.size;
+    player.x = Math.max(
+        0,
+        Math.min(player.x, W - player.size)
+    );
 
 });
 
@@ -122,8 +111,7 @@ function update() {
 
         if (b.y > H + 100) {
 
-            b.y = -100;
-
+            b.y = -120;
             b.x = Math.random() * (W - 80);
 
         }
@@ -136,7 +124,7 @@ function update() {
             (player.y + player.size / 2) -
             (b.y + b.size / 2);
 
-        if (Math.sqrt(dx * dx + dy * dy) < 75) {
+        if (Math.hypot(dx, dy) < 75) {
 
             score++;
 
@@ -144,23 +132,19 @@ function update() {
                 "🍔 " + score;
 
             player.eat = true;
-
             player.timer = 10;
 
             if (score > best) {
 
                 best = score;
-
                 bestLabel.textContent = best;
-
                 localStorage.setItem("best", best);
 
             }
 
-            tg.HapticFeedback?.impactOccurred("light");
+            tg?.HapticFeedback?.impactOccurred("light");
 
-            b.y = -100;
-
+            b.y = -120;
             b.x = Math.random() * (W - 80);
 
         }
@@ -187,7 +171,7 @@ function draw() {
     burgers.forEach(b => {
 
         ctx.drawImage(
-            burgerImg,
+            burger,
             b.x,
             b.y,
             b.size,
@@ -196,7 +180,7 @@ function draw() {
 
     });
 
-    const img = player.eat ? head2 : head1;
+    const img = player.eat ? headEat : headIdle;
 
     ctx.drawImage(
         img,
@@ -222,16 +206,16 @@ function preload() {
 
     const images = [
         bg,
-        head1,
-        head2,
-        burgerImg
+        headIdle,
+        headEat,
+        burger
     ];
 
     let loaded = 0;
 
     images.forEach(img => {
 
-        if (img.complete) {
+        const done = () => {
 
             loaded++;
 
@@ -245,24 +229,12 @@ function preload() {
 
             }
 
+        };
+
+        if (img.complete) {
+            done();
         } else {
-
-            img.onload = () => {
-
-                loaded++;
-
-                if (loaded === images.length) {
-
-                    resize();
-
-                    player.x = (W - player.size) / 2;
-
-                    loop();
-
-                }
-
-            };
-
+            img.onload = done;
         }
 
     });
@@ -289,10 +261,8 @@ document.addEventListener("touchmove", e => {
 
 window.addEventListener("blur", () => {
 
-    if (tg.HapticFeedback) {
-
-        tg.HapticFeedback.selectionChanged();
-
-    }
+    player.eat = false;
 
 });
+
+window.addEventListener("load", resize);
